@@ -1,14 +1,21 @@
 const admin = require('firebase-admin');
 const express = require('express');
+const cors = require('cors');
 const app = express();
+const bodyParser = require('body-parser');
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 // นำเข้าไฟล์การรับรองที่ดาวน์โหลดมา
 const serviceAccount = require('./path/to/serviceAccountKey.json');
-const { add } = require('nodemon/lib/rules');
 // กำหนดการรับรองให้ Firebase Admin SDK
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: 'https://test-liff-01-default-rtdb.asia-southeast1.firebasedatabase.app'
 });
+
+// "client_email": "firebase-adminsdk-bq80e@test-liff-01.iam.gserviceaccount.com",
+
 
 if (admin.apps.length) {
     console.log('เชื่อมต่อกับ Firebase สำเร็จแล้ว');
@@ -16,6 +23,12 @@ if (admin.apps.length) {
     console.log('ไม่สามารถเชื่อมต่อกับ Firebase ได้');
 }
 const db = admin.firestore();
+
+app.use(cors());
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    next();
+});
 
 // กำหนดเส้นทางสำหรับการเรียกข้อมูลจาก Firebase
 app.get('/data', (req, res) => {
@@ -29,10 +42,10 @@ app.get('/data', (req, res) => {
             let message = "";
             if (data === undefined || data.length == 0) {
                 message = "User is Empty";
+                res.status(400).send({ error: true, data: data, message: message });
             } else {
                 message = "Fetch Complete";
             }
-
             res.send({ error: false, data: data, message: message });
         })
         .catch(error => {
@@ -62,23 +75,22 @@ app.get('/data/:id', (req, res) => {
         });
 });
 
-app.post('/data', (req, res) => {
-    var Age = req.body.Age; // รับข้อมูลที่ส่งมาจาก HTTP POST
-    var Name = req.body.Name;
-    var newData = add.Age;
-    var newData = add.Name;
-    console.log = newData;
-    // db.collection('users')
-    //     .add(newData)
-    //     .then((docRef) => {
-    //         console.log('Document written with ID:', docRef.id);
-    //         res.send({ success: true, message: 'Data written successfully' });
-    //     })
-    //     .catch((error) => {
-    //         console.error('Error adding document:', error);
-    //         res.send({ error: true, message: error.message });
-    //     });
+app.post('/data', async (req, res) => {
+    const { name, age } = req.body;
+    const newData = { name, age };
+    console.log(newData);
+    db.collection('/users').doc('user')
+        .set({ newData })
+        .then((docRef) => {
+            console.log('Document written with ID:', docRef.id);
+            res.send({ error: false, message: 'Data written successfully' });
+        })
+        .catch((error) => {
+            console.error('Error adding document:', error);
+            res.send({ error: true, message: error.message });
+        });
 });
+
 
 // กำหนดพอร์ตและเริ่มต้นเซิร์ฟเวอร์
 const port = 3000; // เปลี่ยนเป็นพอร์ตที่คุณต้องการ
